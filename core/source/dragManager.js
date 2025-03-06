@@ -19,7 +19,7 @@ export class Drag {
         this.elements = new Map();
 
         // 新增阈值变量 (保持不变)
-        this.dragThreshold = 10; // 移动超过10px视为拖拽
+        this.dragThreshold = 5; // 移动超过5px视为拖拽，移动端可以适当降低阈值，提高灵敏度
         this.initialPosition = { x: 0, y: 0 };
         this.shouldDrag = false;
 
@@ -158,10 +158,10 @@ export class Drag {
         }
     };
 
-    // 触摸开始事件 (修改：只处理触摸开始的初始状态，不立即触发拖拽)
+    // 触摸开始事件 (修改：根据触摸数量区分单指和双指操作)
     handleTouchStart = (e) => {
         if (e.touches.length === 2) {
-            // 双指操作，开始缩放 (保持不变)
+            // 双指操作，开始缩放
             this.isPinching = true;
             this.isDragging = false; // 双指缩放时，取消拖拽状态
             this.shouldDrag = false;
@@ -171,7 +171,7 @@ export class Drag {
             );
             this.startScale = this.scale;
 
-            // 计算双指中心点作为缩放中心 (保持不变)
+            // 计算双指中心点作为缩放中心
             this.pinchCenter = {
                 x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
                 y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
@@ -207,6 +207,11 @@ export class Drag {
             // 添加 touchmove 和 touchend 监听器，注意这里是添加到 document 上 (关键修改)
             document.addEventListener('touchmove', this.handleFirstMove); // 统一在 handleFirstMove 中处理首次移动判断
             document.addEventListener('touchend', this.handleMouseUp);
+        } else {
+            // 多指或无触摸点，重置状态，避免状态混乱
+            this.isPinching = false;
+            this.isDragging = false;
+            this.shouldDrag = false;
         }
     }
 
@@ -214,7 +219,10 @@ export class Drag {
     handleFirstMove = (e) => {
         let clientX, clientY;
         if (e.type === 'touchmove') { // 触摸事件
-            if (e.touches.length !== 1) return; // 只处理单指触摸移动
+            if (e.touches.length !== 1) { // 只处理单指触摸移动，如果不是单指，则直接返回，避免干扰双指缩放
+                document.removeEventListener('touchmove', this.handleFirstMove); // 移除 touchmove 的 handleFirstMove 监听
+                return;
+            }
             clientX = e.touches[0].clientX;
             clientY = e.touches[0].clientY;
         } else if (e.type === 'mousemove') { // 鼠标事件
@@ -250,7 +258,7 @@ export class Drag {
 
         let clientX, clientY;
         if (e.type === 'touchmove') { // 触摸事件
-            if (e.touches.length !== 1) return; // 只处理单指触摸移动
+            if (e.touches.length !== 1) return; // 只处理单指触摸移动，如果不是单指，则直接返回，避免干扰双指缩放
             clientX = e.touches[0].clientX;
             clientY = e.touches[0].clientY;
         } else if (e.type === 'mousemove') { // 鼠标事件
@@ -297,11 +305,6 @@ export class Drag {
             this.mergeOffset(targetTranslateX - this.translateX, targetTranslateY - this.translateY);
             this.updateTransform();
         }
-        // else if (!this.isDragging && !this.isPinching && e.touches.length === 1) { // 移除此判断，单指移动的首次判断在 handleFirstMove 中统一处理
-        //     this.handleFirstMove(e);
-        // } else if (this.isDragging && e.touches.length === 1) { // 移除此判断，拖拽移动在 handleMouseMove 中统一处理
-        //     this.handleMouseMove(e);
-        // }
     }
 
 
