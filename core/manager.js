@@ -151,7 +151,6 @@ export const SYSTEM = {
         console.log('getComponent', name);
         return renderExtensionTemplateAsync('third-party/st-memory-enhancement/assets/templates', name);
     },
-    lazy: lazy,
     codePathLog: function (context = '', deep = 2) {
         const r = getRelativePositionOfCurrentCode(deep);
         const rs = `${r.codeFileRelativePathWithRoot}[${r.codePositionInFile}] `;
@@ -163,6 +162,9 @@ export const SYSTEM = {
 
     readFile: fileManager.readFile,
     writeFile: fileManager.writeFile,
+    lazy: lazy,
+
+    isMobile: () => /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
 
     // taskTiming: ,
 };
