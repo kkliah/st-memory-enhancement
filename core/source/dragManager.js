@@ -198,23 +198,27 @@ export class Drag {
 
     // 处理单指拖拽开始
     handleDragStart = (e) => {
-        console.log('handleDragStart triggered');
+        console.log('handleDragStart triggered', e); // 添加日志
         const point = this.getPointFromEvent(e);
         console.log('handleDragStart - point:', point);
 
-        // Save initial position
+        // 保存初始位置
         this.initialPosition.x = point.clientX;
         this.initialPosition.y = point.clientY;
         console.log('handleDragStart - initialPosition:', this.initialPosition);
 
-        // Initialize drag state
-        this.isDragging = false;
-        this.shouldDrag = false;
+        // 初始化拖拽状态
+        this.isDragging = true; // 立即设置为 true
+        this.shouldDrag = false; // shouldDrag 仍然需要根据阈值判断
         this.startX = point.clientX;
         this.startY = point.clientY;
 
-        // Add event listeners for first move detection and move/end
-        document.addEventListener('touchmove', this.handleFirstMove); // Attach handleFirstMove directly here
+        // 初始化画布坐标 (在 drag start 时初始化)
+        this.canvasStartX = (this.startX - this.translateX) / this.scale;
+        this.canvasStartY = (this.startY - this.translateY) / this.scale;
+
+        // 添加事件监听
+        document.addEventListener('touchmove', this.handleTouchMove);
         document.addEventListener('touchend', this.handleTouchEnd);
         document.addEventListener('touchcancel', this.handleTouchEnd);
     };
@@ -273,16 +277,24 @@ export class Drag {
 
     // 支持触摸和鼠标移动
     handleTouchMove = (e) => {
-        // console.log('handleTouchMove triggered', this.isDragging, this.isPinching);
+        // console.log('handleTouchMove triggered', this.isDragging, this.isPinching, e); // 添加日志
         if (this.isPinching && e.touches.length === 2) {
             // 双指缩放
             this.handlePinchMove(e);
         } else if (!this.isPinching && e.touches.length === 1) {
             // 单指拖拽
-            if (this.isDragging) { // Only call handleDragMove if dragging has already started
+            if (!this.isDragging) {
+                // 首次 move 判断是否触发拖拽 (保留 handleFirstMove 的阈值判断)
+                this.handleFirstMove(e);
+                if (!this.isDragging) {
+                    // console.log('handleTouchMove - not dragging after handleFirstMove'); // 添加日志
+                    return; // 未触发拖拽阈值则直接返回
+                }
+            }
+            if (this.isDragging) {
+                // console.log('handleTouchMove - handleDragMove called'); // 添加日志
                 this.handleDragMove(e);
             }
-            // handleFirstMove is now attached in handleDragStart and triggered by touchmove, no need to call it here again
         }
         e.preventDefault(); // 阻止默认的触摸事件行为，例如页面滚动
     };
