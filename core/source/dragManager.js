@@ -10,7 +10,7 @@ export class Drag {
         this.translateX = 0;
         this.translateY = 0;
         this.scale = 1;
-        this.isDragging = false; // 标记是否正在拖拽
+        this.isDragging = false;
         this.accumulatedX = 0;
         this.accumulatedY = 0;
         this.threshold = 1;
@@ -21,7 +21,7 @@ export class Drag {
         // 新增阈值变量 (保持不变)
         this.dragThreshold = 10; // 移动超过10px视为拖拽
         this.initialPosition = { x: 0, y: 0 };
-        this.shouldDrag = false; // 标记是否应该开始拖拽 (用于区分点击和拖拽)
+        this.shouldDrag = false;
 
         // 双指缩放相关变量 (保持不变)
         this.isPinching = false; // 标记是否正在进行双指缩放
@@ -158,74 +158,63 @@ export class Drag {
         }
     };
 
-    // 触摸开始事件 (修改：根据触摸点数量分发处理)
+    // 触摸开始事件 (修改：只处理触摸开始的初始状态，不立即触发拖拽)
     handleTouchStart = (e) => {
         if (e.touches.length === 2) {
             // 双指操作，开始缩放 (保持不变)
-            this.handlePinchStart(e); // 调用双指缩放开始处理函数
+            this.isPinching = true;
+            this.isDragging = false; // 双指缩放时，取消拖拽状态
+            this.shouldDrag = false;
+            this.startPinchDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            this.startScale = this.scale;
+
+            // 计算双指中心点作为缩放中心 (保持不变)
+            this.pinchCenter = {
+                x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
+                y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
+            };
         } else if (e.touches.length === 1) {
-            // 单指操作，开始拖拽或准备拖拽 (保持不变)
-            this.handleDragStart(e.touches[0].clientX, e.touches[0].clientY); // 调用单指拖拽开始处理函数
+            // 单指操作，设置初始位置，但不立即开始拖拽
+            let clientX, clientY, touches;
+            touches = e.touches;
+            if (touches.length > 0) {
+                clientX = touches[0].clientX;
+                clientY = touches[0].clientY;
+            } else {
+                return;
+            }
+
+            this.initialPosition.x = clientX;
+            this.initialPosition.y = clientY;
+
+            this.dragLayer.style.pointerEvents = 'none';
+            const elementUnderMouse = document.elementFromPoint(clientX, clientY);
+            this.dragLayer.style.pointerEvents = 'auto';
+
+            if (elementUnderMouse?.closest('button, [onclick], a')) {
+                elementUnderMouse.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+                return;
+            }
+
+            this.isDragging = false;
+            this.shouldDrag = false;
+            this.startX = clientX;
+            this.startY = clientY;
+
+            // 添加 touchmove 和 touchend 监听器，注意这里是添加到 document 上 (关键修改)
+            document.addEventListener('touchmove', this.handleFirstMove); // 统一在 handleFirstMove 中处理首次移动判断
+            document.addEventListener('touchend', this.handleMouseUp);
         }
-        // 如果是多指或无触摸点，可以根据需要添加处理逻辑，这里为了简化，不做处理
     }
-
-    // 双指缩放开始处理函数 (保持不变)
-    handlePinchStart = (e) => {
-        this.isPinching = true;
-        this.isDragging = false; // 双指缩放时，取消拖拽状态
-        this.shouldDrag = false;
-        this.startPinchDistance = Math.hypot(
-            e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY
-        );
-        this.startScale = this.scale;
-
-        // 计算双指中心点作为缩放中心 (保持不变)
-        this.pinchCenter = {
-            x: (e.touches[0].clientX + e.touches[1].clientX) / 2,
-            y: (e.touches[0].clientY + e.touches[1].clientY) / 2,
-        };
-
-        // 添加 touchmove 和 touchend 监听器，注意这里是添加到 document 上 (关键修改)
-        document.addEventListener('touchmove', this.handleTouchMove); // 监听 touchmove 事件
-        document.addEventListener('touchend', this.handleMouseUp); // 监听 touchend 事件
-        document.addEventListener('touchcancel', this.handleMouseUp); // 监听 touchcancel 事件
-    }
-
-    // 单指拖拽开始处理函数 (保持不变)
-    handleDragStart = (clientX, clientY) => {
-        this.initialPosition.x = clientX;
-        this.initialPosition.y = clientY;
-
-        this.dragLayer.style.pointerEvents = 'none';
-        const elementUnderMouse = document.elementFromPoint(clientX, clientY);
-        this.dragLayer.style.pointerEvents = 'auto';
-
-        if (elementUnderMouse?.closest('button, [onclick], a')) {
-            elementUnderMouse.dispatchEvent(new MouseEvent('click', { bubbles: true }));
-            return;
-        }
-
-        this.isDragging = false;
-        this.shouldDrag = false;
-        this.startX = clientX;
-        this.startY = clientY;
-
-        // 添加 touchmove 和 touchend 监听器，注意这里是添加到 document 上 (关键修改)
-        document.addEventListener('touchmove', this.handleFirstMove); // 监听 touchmove 事件，首次移动判断是否开始拖拽
-        document.addEventListener('touchend', this.handleMouseUp); // 监听 touchend 事件
-        document.addEventListener('touchcancel', this.handleMouseUp); // 监听 touchcancel 事件
-    }
-
 
     // 首次移动事件处理 (修改：统一处理鼠标和触摸的首次移动)
     handleFirstMove = (e) => {
         let clientX, clientY;
         if (e.type === 'touchmove') { // 触摸事件
-            if (e.touches.length !== 1 && !this.isDragging) { // 如果不是单指触摸，且当前不在拖拽状态，则不处理 (只处理单指触摸移动)
-                return;
-            }
+            if (e.touches.length !== 1) return; // 只处理单指触摸移动
             clientX = e.touches[0].clientX;
             clientY = e.touches[0].clientY;
         } else if (e.type === 'mousemove') { // 鼠标事件
@@ -277,48 +266,58 @@ export class Drag {
         this.mergeOffset(deltaX * this.scale, deltaY * this.scale);
     };
 
-    // 处理触摸移动事件 (修改：根据触摸点数量分发处理)
+    // 处理双指触摸移动事件 (保持不变)
     handleTouchMove = (e) => {
-        if (e.touches.length === 2 && this.isPinching) {
-            // 双指操作，处理缩放 (保持不变)
-            this.handlePinchMove(e); // 调用双指缩放移动处理函数
-        } else if (e.touches.length === 1 && this.isDragging) {
-            // 单指操作，处理拖拽 (保持不变)
-            this.handleMouseMove(e); // 调用单指拖拽移动处理函数 (复用 handleMouseMove)
+        if (e.touches.length === 2) {
+            this.isDragging = false; // Ensure dragging is off when pinching
+            this.shouldDrag = false;
+            // ... (双指缩放逻辑保持不变)
+            this.isPinching = true;
+            const currentPinchDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            let scaleFactor = currentPinchDistance / this.startPinchDistance;
+            let newScale = this.startScale * scaleFactor;
+
+            newScale = Math.min(
+                Math.max(newScale, Math.pow(this.zoomValue, this.zoomRange[1])),
+                Math.pow(this.zoomValue, this.zoomRange[0])
+            );
+            newScale = Math.round(newScale * 100) / 100;
+            this.scale = newScale;
+
+            const rect = this.dragLayer.getBoundingClientRect();
+            const mouseX = this.pinchCenter.x - rect.left;
+            const mouseY = this.pinchCenter.y - rect.top;
+
+            const worldX = (mouseX - this.translateX) / this.startScale;
+            const worldY = (mouseY - this.translateY) / this.startScale;
+
+            const targetTranslateX = mouseX - worldX * this.scale;
+            const targetTranslateY = mouseY - worldY * this.scale;
+
+            this.mergeOffset(targetTranslateX - this.translateX, targetTranslateY - this.translateY);
+            this.updateTransform();
+        } else if (e.touches.length === 1) {
+            if (this.isPinching) {
+                this.isPinching = false; // End pinching if finger count reduces to 1
+                this.startPinchDistance = 0; // Reset pinch distance
+            }
+            if (this.isDragging) {
+                this.handleMouseMove(e); // Continue dragging if already dragging
+            } else {
+                this.handleFirstMove(e); // Check for drag start if not yet dragging
+            }
+        } else {
+            this.isPinching = false; // Reset pinching if touch count is not 1 or 2
+            if (this.isDragging) {
+                this.isDragging = false;
+                this.shouldDrag = false;
+                this.dragLayer.style.cursor = 'grab';
+                document.removeEventListener('touchmove', this.handleMouseMove);
+            }
         }
-        // 如果是其他触摸点数量，可以根据需要添加处理逻辑，这里为了简化，不做处理
-    }
-
-    // 双指缩放移动处理函数 (保持不变)
-    handlePinchMove = (e) => {
-        if (!this.isPinching || e.touches.length !== 2) return; // 确保是双指缩放状态且是双指触摸
-
-        const currentPinchDistance = Math.hypot(
-            e.touches[0].clientX - e.touches[1].clientX,
-            e.touches[0].clientY - e.touches[1].clientY
-        );
-        let scaleFactor = currentPinchDistance / this.startPinchDistance;
-        let newScale = this.startScale * scaleFactor;
-
-        newScale = Math.min(
-            Math.max(newScale, Math.pow(this.zoomValue, this.zoomRange[1])),
-            Math.pow(this.zoomValue, this.zoomRange[0])
-        );
-        newScale = Math.round(newScale * 100) / 100;
-        this.scale = newScale;
-
-        const rect = this.dragLayer.getBoundingClientRect();
-        const mouseX = this.pinchCenter.x - rect.left;
-        const mouseY = this.pinchCenter.y - rect.top;
-
-        const worldX = (mouseX - this.translateX) / this.startScale;
-        const worldY = (mouseY - this.translateY) / this.startScale;
-
-        const targetTranslateX = mouseX - worldX * this.scale;
-        const targetTranslateY = mouseY - worldY * this.scale;
-
-        this.mergeOffset(targetTranslateX - this.translateX, targetTranslateY - this.translateY);
-        this.updateTransform();
     }
 
 
@@ -330,7 +329,6 @@ export class Drag {
         document.removeEventListener('mouseup', this.handleMouseUp);
         document.removeEventListener('touchmove', this.handleFirstMove); // 清理 touchmove 的 handleFirstMove 监听
         document.removeEventListener('touchmove', this.handleMouseMove); // 清理 touchmove 的 handleMouseMove 监听
-        document.removeEventListener('touchmove', this.handleTouchMove); // 清理 touchmove 的 handleTouchMove 监听 (新增)
         document.removeEventListener('touchend', this.handleMouseUp);
         document.removeEventListener('touchcancel', this.handleMouseUp);
 
