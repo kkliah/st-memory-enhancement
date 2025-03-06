@@ -48,9 +48,10 @@ export class Drag {
         this.dragSpace.style.top = '0';
         this.dragSpace.style.left = '0';
         this.dragSpace.style.bottom = '0';
-        if (!SYSTEM.isMobile()) {
-            this.dragSpace.style.transition = 'transform 0.12s cubic-bezier(0.22, 1, 0.36, 1)';
-        }
+        this.dragSpace.style.transition = 'transform 0.12s cubic-bezier(0.22, 1, 0.36, 1)';
+        // if (!SYSTEM.isMobile()) {
+        //     this.dragSpace.style.transition = 'transform 0.12s cubic-bezier(0.22, 1, 0.36, 1)';
+        // }
         this.dragContainer.appendChild(this.dragSpace);
 
         // 创建拖动事件层
