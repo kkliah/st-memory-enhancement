@@ -19,7 +19,7 @@ export class Drag {
         this.elements = new Map();
 
         // 拖拽阈值
-        this.dragThreshold = 10;
+        this.dragThreshold = 1; // Reduced for touch sensitivity during testing
         this.initialPosition = { x: 0, y: 0 };
         this.shouldDrag = false;
 
@@ -133,10 +133,15 @@ export class Drag {
     /** ------------------ 以下为拖拽功能实现，为事件处理函数，不需要手动调用 ------------------ */
         // 统一获取坐标的函数
     getPointFromEvent = (e) => {
+        // console.log('getPointFromEvent - e:', e); // Log the entire event
+        // console.log('getPointFromEvent - e.touches:', e.touches); // Log e.touches
+
         if (e.touches && e.touches.length > 0) { // 触摸事件
+            const touch = e.touches[0];
+            // console.log('getPointFromEvent - touch:', touch); // Log the first touch object
             return {
-                clientX: e.touches[0].clientX,
-                clientY: e.touches[0].clientY
+                clientX: touch.clientX,
+                clientY: touch.clientY
             };
         } else { // 鼠标事件
             return {
@@ -182,11 +187,12 @@ export class Drag {
 
     // 触摸开始事件
     handleTouchStart = (e) => {
-        if (e.touches.length === 2) {
-            // 双指操作，进入双指缩放逻辑
+        console.log('handleTouchStart triggered', e.touches?.length); // ADD THIS LINE
+        const point = this.getPointFromEvent(e);
+        console.log('handleTouchStart - point:', point); // Log point here
+        if (e.touches?.length === 2) {
             this.handlePinchStart(e);
-        } else if (e.touches.length === 1) {
-            // 单指操作，进入单指拖拽逻辑
+        } else if (e.touches?.length === 1) {
             this.handleDragStart(e);
         }
 
@@ -195,11 +201,14 @@ export class Drag {
 
     // 处理单指拖拽开始
     handleDragStart = (e) => {
+        console.log('handleDragStart triggered'); // ADD THIS LINE
         const point = this.getPointFromEvent(e); // 获取统一的坐标
+        console.log('handleDragStart - point:', point); // Log point here
 
         // 保存初始位置
         this.initialPosition.x = point.clientX;
         this.initialPosition.y = point.clientY;
+        console.log('handleDragStart - initialPosition:', this.initialPosition); // Log initialPosition
 
         // 初始化拖拽状态
         this.isDragging = false;
@@ -238,9 +247,10 @@ export class Drag {
 
     // 添加拖拽状态标记 (鼠标和触摸共用)
     handleFirstMove = (e) => {
-        const point = this.getPointFromEvent(e); // 获取统一的坐标
+        const point = this.getPointFromEvent(e);
         const dx = point.clientX - this.initialPosition.x;
         const dy = point.clientY - this.initialPosition.y;
+        // console.log('handleFirstMove triggered', dx, dy, Math.sqrt(dx * dx + dy * dy)); // ADD THIS LINE
 
         if (Math.sqrt(dx * dx + dy * dy) > this.dragThreshold) {
             this.isDragging = true;
@@ -266,6 +276,7 @@ export class Drag {
 
     // 支持触摸和鼠标移动
     handleTouchMove = (e) => {
+        // console.log('handleTouchMove triggered', this.isDragging, this.isPinching); // ADD THIS LINE
         if (this.isPinching && e.touches.length === 2) {
             // 双指缩放
             this.handlePinchMove(e);
@@ -273,7 +284,7 @@ export class Drag {
             // 单指拖拽
             if (!this.isDragging) {
                 // 首次 move 判断是否触发拖拽
-                this.handleFirstMove({ ...e, type: 'touchmove' });
+                this.handleFirstMove(e); // <---- Changed: Pass original 'e'
                 if (!this.isDragging) return; // 未触发拖拽则直接返回
             }
             this.handleDragMove(e);
@@ -283,6 +294,7 @@ export class Drag {
 
     // 处理单指拖拽移动
     handleDragMove = (e) => {
+        // console.log('handleDragMove triggered'); // ADD THIS LINE
         if (!this.isDragging) return;
 
         const point = this.getPointFromEvent(e); // 获取统一的坐标
@@ -388,6 +400,7 @@ export class Drag {
 
     // 触摸结束事件
     handleTouchEnd = (e) => {
+        console.log('handleTouchEnd triggered'); // ADD THIS LINE
         // 清理触摸事件监听
         document.removeEventListener('touchmove', this.handleTouchMove);
         document.removeEventListener('touchend', this.handleTouchEnd);
