@@ -187,37 +187,34 @@ export class Drag {
 
     // 触摸开始事件
     handleTouchStart = (e) => {
-        console.log('handleTouchStart triggered', e.touches?.length); // ADD THIS LINE
-        const point = this.getPointFromEvent(e);
-        console.log('handleTouchStart - point:', point); // Log point here
+        console.log('handleTouchStart triggered', e.touches?.length);
         if (e.touches?.length === 2) {
             this.handlePinchStart(e);
         } else if (e.touches?.length === 1) {
-            this.handleDragStart(e);
+            this.handleDragStart(e); // Call handleDragStart for single touch
         }
-
         e.preventDefault(); // 阻止默认的触摸事件行为，例如页面滚动
     };
 
     // 处理单指拖拽开始
     handleDragStart = (e) => {
-        console.log('handleDragStart triggered'); // ADD THIS LINE
-        const point = this.getPointFromEvent(e); // 获取统一的坐标
-        console.log('handleDragStart - point:', point); // Log point here
+        console.log('handleDragStart triggered');
+        const point = this.getPointFromEvent(e);
+        console.log('handleDragStart - point:', point);
 
-        // 保存初始位置
+        // Save initial position
         this.initialPosition.x = point.clientX;
         this.initialPosition.y = point.clientY;
-        console.log('handleDragStart - initialPosition:', this.initialPosition); // Log initialPosition
+        console.log('handleDragStart - initialPosition:', this.initialPosition);
 
-        // 初始化拖拽状态
+        // Initialize drag state
         this.isDragging = false;
         this.shouldDrag = false;
         this.startX = point.clientX;
         this.startY = point.clientY;
 
-        // 添加事件监听
-        document.addEventListener('touchmove', this.handleTouchMove);
+        // Add event listeners for first move detection and move/end
+        document.addEventListener('touchmove', this.handleFirstMove); // Attach handleFirstMove directly here
         document.addEventListener('touchend', this.handleTouchEnd);
         document.addEventListener('touchcancel', this.handleTouchEnd);
     };
@@ -276,18 +273,16 @@ export class Drag {
 
     // 支持触摸和鼠标移动
     handleTouchMove = (e) => {
-        // console.log('handleTouchMove triggered', this.isDragging, this.isPinching); // ADD THIS LINE
+        // console.log('handleTouchMove triggered', this.isDragging, this.isPinching);
         if (this.isPinching && e.touches.length === 2) {
             // 双指缩放
             this.handlePinchMove(e);
         } else if (!this.isPinching && e.touches.length === 1) {
             // 单指拖拽
-            if (!this.isDragging) {
-                // 首次 move 判断是否触发拖拽
-                this.handleFirstMove(e); // <---- Changed: Pass original 'e'
-                if (!this.isDragging) return; // 未触发拖拽则直接返回
+            if (this.isDragging) { // Only call handleDragMove if dragging has already started
+                this.handleDragMove(e);
             }
-            this.handleDragMove(e);
+            // handleFirstMove is now attached in handleDragStart and triggered by touchmove, no need to call it here again
         }
         e.preventDefault(); // 阻止默认的触摸事件行为，例如页面滚动
     };
@@ -400,16 +395,17 @@ export class Drag {
 
     // 触摸结束事件
     handleTouchEnd = (e) => {
-        console.log('handleTouchEnd triggered'); // ADD THIS LINE
-        // 清理触摸事件监听
+        console.log('handleTouchEnd triggered');
+        // Clean up touch event listeners - importantly remove handleFirstMove here as well
+        document.removeEventListener('touchmove', this.handleFirstMove); // Remove handleFirstMove listener
         document.removeEventListener('touchmove', this.handleTouchMove);
         document.removeEventListener('touchend', this.handleTouchEnd);
-        document.removeEventListener('touchcancel', this.handleTouchEnd);
+        document.removeEventListener('touchcancel', this.handleTouchCancel); // Corrected event name
 
-        // 重置拖拽和缩放状态
+        // Reset drag and zoom states
         this.isDragging = false;
         this.shouldDrag = false;
-        this.isPinching = false; // 重置双指缩放状态
+        this.isPinching = false; // Reset pinch zoom state
         this.initialPinchDistance = null;
         this.initialPinchCenter = null;
         this.dragLayer.style.cursor = 'grab';
